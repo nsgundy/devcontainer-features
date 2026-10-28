@@ -69,14 +69,56 @@ keys remain. No host configuration requires rollback.
 
 ## Personal default Features: limitations
 
-Actual VS Code User defaultFeatures injection passed in disposable Dockerfile
-and Compose fixtures with lockfile handling disabled, preserving project files
-and existing empty lockfiles. This is not a recommendation to globally disable
-lockfile handling: doing so also disables generation/verification for project
-Features. Behavior with published additional Features and normal lockfile
-handling is under investigation.
+### Lockfiles
 
-The global runtime override can affect D-Bus, Wayland, audio and other tools.
-Preserving an existing runtime or scoping the variable to explicit CLI consumers
-is under investigation. Cache reuse/expiry and end-to-end secret retrieval have
-not been established; no test secret reads have been performed.
+Actual isolated VS Code User defaultFeatures injection passed for Dockerfile
+and Compose. Further published-artifact tests with bundled CLI 0.89.0 found:
+
+| Project state | Normal lockfile handling plus this additional Feature |
+| --- | --- |
+| No existing lockfile | Creates an empty `features` lockfile: a project-file change |
+| Valid non-empty project lockfile | Preserves exact bytes; frozen-lockfile build succeeds |
+
+Personal additional Features are deliberately excluded from generated lockfile
+entries. Thus globally disabling lockfile handling is **not necessary** for an
+already locked project and would unnecessarily disable project verification.
+The remaining no-project-edits issue is empty lockfile creation in unlocked
+projects. A Feature cannot prevent the engine's lockfile write through its own
+metadata. Prefer an upstream client fix over deleting project files from a
+lifecycle hook or globally disabling lockfiles.
+
+Source: reference CLI [lockfile generation/writing](https://github.com/devcontainers/cli/blob/d807cb27c195b6bc0e89d893fc20f44a30bf27ee/src/spec-configuration/lockfile.ts#L16-L85).
+The bundled 0.89.0 implementation was also inspected and tested directly.
+
+### Runtime environment
+
+Version 0.1.0's global runtime override can affect D-Bus, Wayland, audio and other
+tools. Disposable fake-socket probes with official CLI 2.41.1 on Ubuntu 24.04
+showed that it attempts `/run/user/<uid>/1Password-BrowserSupport.sock` when
+`XDG_RUNTIME_DIR` is unset, and uses the configured runtime path when set.
+This tests endpoint selection, **not successful desktop authentication**.
+
+A prospective replacement can mirror only the host socket's canonical path and
+leave `XDG_RUNTIME_DIR` untouched, provided the container's existing runtime
+(or the unset-variable fallback) resolves to that same path. A different working
+container runtime requires an explicit policy; do not silently override it or
+mount the whole host runtime directory. Host-path mirroring through `localEnv`
+does not itself discover an arbitrary container runtime. This replacement is
+not implemented or released yet.
+
+No desktop socket-path override is documented in the official CLI
+[environment reference](https://www.1password.dev/cli/environment-variables.md).
+`OP_BIOMETRIC_UNLOCK_ENABLED=true` is a documented integration toggle, not a
+socket override. A fake-socket probe connected with this toggle and no settings
+file; whether it can replace settings mutation needs real integration validation.
+
+An explicit `env XDG_RUNTIME_DIR=/run/1password-desktop /usr/bin/op ...` invocation
+avoids changing unrelated processes, but needs consumer cooperation and passes
+the changed runtime to children of `op run`. It is not a transparent solution
+for tools that invoke plain `op` themselves. Do not shadow the genuine CLI.
+
+See official [app integration](https://www.1password.dev/cli/app-integration.md),
+[Linux integration security](https://www.1password.dev/cli/app-integration-security.md),
+and [XDG runtime requirements](https://specifications.freedesktop.org/basedir-spec/latest/).
+Cache reuse/expiry and end-to-end secret retrieval remain unverified; no test
+secret reads have been performed.

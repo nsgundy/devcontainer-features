@@ -50,8 +50,21 @@ idempotency and before/after workspace hashes. No authentication or secret reads
 Containers, Compose networks, fixtures and tagged images are cleaned up.
 
 Without `--no-lockfile`, the local-Feature case creates a lockfile and deliberately
-fails the no-project-modifications gate. This does not by itself establish the
-behavior of a published OCI Feature with normal project lockfiles.
+fails the no-project-modifications gate. Separate published-Feature builds with
+the installed extension's bundled CLI 0.89.0 confirmed:
+
+- No existing lockfile: an empty `features` lockfile is created.
+- Existing non-empty lockfile for the project git Feature: injecting the published
+  personal Feature leaves bytes unchanged and passes `--frozen-lockfile`.
+- The personal Feature is not recorded in the project lockfile.
+
+These builds used a clean HOME/Docker config and no desktop socket. Runtime
+endpoint-selection probes used disposable fake Unix sockets only, with no
+protocol implementation or host access. Official CLI 2.41.1 attempted the
+canonical `/run/user/<uid>` socket when XDG_RUNTIME_DIR was unset, followed a
+custom runtime when set, and connected with the documented integration toggle
+without a settings file. Successful desktop integration under a revised runtime
+layout is not established by these probes.
 
 Operator-tested published Feature injection through isolated VS Code User settings
 passed for both fixture types with lockfile handling disabled. Existing empty

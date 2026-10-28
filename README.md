@@ -14,9 +14,10 @@ CLI and mounts only the desktop integration socket. No authentication or secret
 reads run automatically.
 
 **Before adoption:** version 0.1.0 globally overrides container `XDG_RUNTIME_DIR`.
-Lockfile behavior for personal default Features also needs care. See the Feature
-README; do not disable lockfile verification globally without understanding the
-impact on other projects. Main-branch documentation may evolve independently
+Personal additional Features preserve a valid existing project lockfile, but the
+client creates an empty lockfile for an unlocked project. Do not globally disable
+lockfile verification as a blanket workaround. See the Feature README for the
+verified behavior and a runtime-preserving design under investigation. Main-branch documentation may evolve independently
 of the immutable published package.
 
 ## Tests and publishing
