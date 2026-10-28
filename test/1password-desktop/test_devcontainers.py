@@ -13,6 +13,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--allow-desktop-access', action='store_true', required=True)
 parser.add_argument('--cli', type=Path, required=True)
 parser.add_argument('--no-lockfile', action='store_true')
+parser.add_argument('--check-desktop-signin', action='store_true',
+                    help='Explicitly attempt desktop sign-in; may show an authorization prompt. No secret reads.')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]
 assert (Path(os.environ['XDG_RUNTIME_DIR']) / '1Password-BrowserSupport.sock').is_socket()
@@ -37,9 +39,10 @@ for scenario in ('dockerfile', 'compose'):
         config_dir = workspace / '.devcontainer'
         config_dir.mkdir()
         shutil.copytree(root / 'src/1password-desktop', config_dir / 'feature')
+        runtime_env = f'ENV XDG_RUNTIME_DIR=/run/user/{os.getuid()}\n' if scenario == 'compose' else ''
         (config_dir / 'Dockerfile').write_text('''FROM ubuntu:24.04
 RUN usermod -u 12345 ubuntu && groupmod -g 12345 ubuntu && chown -R 12345:12345 /home/ubuntu
-USER ubuntu
+''' + runtime_env + '''USER ubuntu
 CMD ["sleep", "infinity"]
 ''')
         config = {'remoteUser': 'ubuntu', 'updateRemoteUserUID': True}
@@ -64,7 +67,7 @@ services:
         try:
             output = command(['node', str(args.cli), 'up', '--workspace-folder', str(workspace),
                               '--id-label', label, '--additional-features', json.dumps({
-                                  './feature': {'hostCliGid': gid, 'acceptRuntimeOverride': True}}),
+                                  './feature': {'hostCliGid': gid}}),
                               '--include-merged-configuration', '--log-level', 'info',
                               *(['--no-lockfile'] if args.no_lockfile else [])])
             result = json.loads(output.strip().splitlines()[-1])
@@ -77,11 +80,24 @@ services:
             assert 'FAIL:' not in doctor
             # postStart must have completed; test a second explicit lifecycle run.
             command(['docker', 'exec', '-u', 'ubuntu', container, 'sudo', '-n',
-                     '/usr/local/share/1password-desktop/configure-user.py'])
+                     '/usr/local/share/1password-desktop/configure-runtime.py'])
+            runtime_check = (f'test "$XDG_RUNTIME_DIR" = /run/user/{os.getuid()}' if scenario == 'compose'
+                             else 'test -z "${XDG_RUNTIME_DIR+x}"')
+            command(['docker', 'exec', '-u', 'ubuntu', container, 'sh', '-c',
+                     runtime_check + ' && test ! -e /home/ubuntu/.config/1Password/settings/settings.json'])
+            if args.check_desktop_signin:
+                # Suppress all raw CLI output, including account-selection data.
+                probe = command(['docker', 'exec', '-u', 'ubuntu', container, 'python3', '-c',
+                    'import json,subprocess; r=subprocess.run(["/usr/bin/op","signin"], '
+                    'stdin=subprocess.DEVNULL,capture_output=True,timeout=30); '
+                    'print(json.dumps({"desktop_signin_passed":r.returncode==0})); '
+                    'raise SystemExit(0 if r.returncode==0 else 1)'])
+                print(probe, flush=True)
             after = files(workspace)
             changed = sorted(key for key in before.keys() | after.keys() if before.get(key) != after.get(key))
             print(json.dumps({'scenario': scenario, 'uid_updated': True, 'doctor_passed': True,
-                              'lifecycle_rerun_passed': True, 'workspace_changes': changed}), flush=True)
+                              'lifecycle_rerun_passed': True, 'runtime_env_unchanged': True,
+                              'settings_not_created': True, 'workspace_changes': changed}), flush=True)
             workspace_mutations |= bool(changed)
         finally:
             # Label cleanup also covers a partial CLI failure before returning an ID.

@@ -2,42 +2,35 @@
 
 Experimental native-Linux 1Password desktop integration for trusted devcontainers.
 
-## Feature
-
-- [1password-desktop](src/1password-desktop/README.md)
-- Published reference: `ghcr.io/nsgundy/devcontainer-features/1password-desktop:0.1.0`
+- [Feature documentation](src/1password-desktop/README.md)
+- [Tests](test/1password-desktop/README.md)
 - License: [MIT](LICENSE)
 
-Supports Debian/Ubuntu containers on native Linux with rootful Docker, no user
-namespace remapping, and matching host/container UID. It installs the official
-CLI and mounts only the desktop integration socket. No authentication or secret
-reads run automatically.
+## Current work
 
-**Before adoption:** version 0.1.0 globally overrides container `XDG_RUNTIME_DIR`.
+**0.2.0 is under development, not published.** It uses the official apt CLI and
+single canonical socket mount without overriding XDG_RUNTIME_DIR or changing
+user settings. Incompatible runtimes fail clearly rather than being overwritten.
+
+Supports Debian/Ubuntu containers on native Linux with rootful Docker, no user
+namespace remapping, and matching host/container UID. No authentication or secret
+reads run automatically. Desktop sign-in for the revised design remains pending.
+
+Published 0.1.0 uses the older global-runtime-override design; main-branch code
+and documentation must not be interpreted as its behavior. Its withdrawal is a
+separate operation from Git history cleanup and development of the replacement.
+
 Personal additional Features preserve a valid existing project lockfile, but the
 client creates an empty lockfile for an unlocked project. Do not globally disable
-lockfile verification as a blanket workaround. See the Feature README for the
-verified behavior and a runtime-preserving design under investigation. Main-branch documentation may evolve independently
-of the immutable published package.
+lockfile verification as a blanket workaround.
 
-## Tests and publishing
+## Testing and publishing
 
-See [test instructions](test/1password-desktop/README.md). Automated tests need
-Docker but no desktop app or credentials. Real socket integration is opt-in.
+CI tests Debian 12/13 and Ubuntu 22.04/24.04 with no desktop credentials or host
+socket. Local socket tests are opt-in. A manually triggered release workflow runs
+the matrix before publishing from `main`. Third-party Actions are SHA-pinned.
+Publishing uses GITHUB_TOKEN with contents read and packages write, without
+documentation PRs or repository tag generation. Development commits do not publish.
 
-CI tests Debian 12/13 and Ubuntu 22.04/24.04. A manually triggered release workflow
-runs the same matrix before publishing from `main`. Third-party Actions are
-SHA-pinned. Publishing uses `GITHUB_TOKEN` with contents read and packages write;
-no documentation PR or repository tag generation is enabled.
-
-## Initial release
-
-Version: `0.1.0`
-
-Manifest digest:
-`sha256:6657a917a6ce58e346e920155939a49fbee6a203a2f07914fd6ddc1fb47f711a`
-
-Tags `0.1.0`, `0.1`, `0`, and `latest` were verified at initial publication.
-Prefer the exact version for initial validation. Anonymous retrieval and
-credential-free installation passed. Personal VS Code settings, dotfiles and
-existing project containers are never modified by publishing this Feature.
+Personal VS Code settings, dotfiles and existing project containers are never
+modified by publishing or running automated tests.

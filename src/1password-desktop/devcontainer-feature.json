@@ -1,16 +1,15 @@
 {
   "id": "1password-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "name": "1Password desktop integration (experimental)",
   "documentationURL": "https://github.com/nsgundy/devcontainer-features/tree/main/src/1password-desktop",
   "licenseURL": "https://github.com/nsgundy/devcontainer-features/blob/main/LICENSE",
-  "description": "Official apt CLI and single-socket integration for trusted native-Linux devcontainers. Requires Python 3 (installed).",
+  "description": "Official apt CLI and canonical single-socket integration for trusted native-Linux devcontainers. Requires Python 3 (installed).",
   "options": {
-    "hostCliGid": {"type": "string", "default": "", "description": "Required numeric group from host stat -c %g /usr/bin/op"},
-    "acceptRuntimeOverride": {"type": "boolean", "default": false, "description": "Required opt-in: globally sets XDG_RUNTIME_DIR=/run/1password-desktop; do not enable with another desktop runtime integration."}
+    "hostCliGid": {"type": "string", "default": "", "description": "Required numeric group from host stat -c %g /usr/bin/op"}
   },
-  "mounts": [{"type": "bind", "source": "${localEnv:XDG_RUNTIME_DIR}/1Password-BrowserSupport.sock", "target": "/run/1password-desktop/1Password-BrowserSupport.sock"}],
-  "containerEnv": {"XDG_RUNTIME_DIR": "/run/1password-desktop"},
-  "postStartCommand": "sudo -n /usr/local/share/1password-desktop/configure-user.py",
+  "mounts": [{"type": "bind", "source": "${localEnv:XDG_RUNTIME_DIR}/1Password-BrowserSupport.sock", "target": "${localEnv:XDG_RUNTIME_DIR}/1Password-BrowserSupport.sock"}],
+  "containerEnv": {"OP_BIOMETRIC_UNLOCK_ENABLED": "true"},
+  "postStartCommand": "/usr/local/share/1password-desktop/configure-runtime.py",
   "installsAfter": ["ghcr.io/devcontainers/features/common-utils"]
 }
