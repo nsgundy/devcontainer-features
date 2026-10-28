@@ -44,7 +44,8 @@ Containers, Compose networks, fixtures and tagged images are cleaned up.
 An optional `--check-desktop-signin` explicitly attempts sign-in and may prompt on
 the desktop. All raw CLI output is suppressed; only a success boolean is printed.
 No vault items are read. This flag is never used in CI. The revised runtime layout
-has passed diagnostics but sign-in remains pending operator-coordinated validation.
+passed desktop sign-in in both Dockerfile and Compose fixtures. The authorization
+timeout is two minutes per container.
 
 `--no-lockfile` is used only to isolate the runtime tests from known client-level
 empty lockfile generation; it is not a recommendation for normal User settings.
@@ -61,10 +62,14 @@ Separate published-0.1.0 builds with bundled CLI 0.89.0 confirmed:
 These builds used a clean HOME/Docker config and no desktop socket. Additional
 Feature exclusion is client behavior, independent of the runtime redesign.
 
-## Legacy artifact smoke test
+## Published-artifact smoke test
 
-`test_public_artifact.py --cli /path/to/devContainersSpecCLI.js` targets immutable
-published 0.1.0: anonymous tag/digest retrieval, layer integrity, released file
-allowlist/metadata, and installation with fresh HOME and empty credential config.
-It does not test 0.2.0 and will cease to work if the legacy package is withdrawn.
-A replacement published-artifact check is required before releasing 0.2.0.
+```sh
+python3 test/1password-desktop/test_public_artifact.py \
+  --cli /path/to/devContainersSpecCLI.js --expected-digest sha256:RELEASE_DIGEST
+```
+
+Targets 0.2.0: anonymous tag/digest retrieval, layer integrity, exact release-source
+comparison, and installation with fresh HOME and empty credential config.
+The build mounts no desktop socket and does not authenticate. Moving `0`/`latest`
+are checked against the expected release digest at validation time.

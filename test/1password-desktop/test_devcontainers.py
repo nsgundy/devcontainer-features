@@ -89,7 +89,7 @@ services:
                 # Suppress all raw CLI output, including account-selection data.
                 probe = command(['docker', 'exec', '-u', 'ubuntu', container, 'python3', '-c',
                     'import json,subprocess; r=subprocess.run(["/usr/bin/op","signin"], '
-                    'stdin=subprocess.DEVNULL,capture_output=True,timeout=30); '
+                    'stdin=subprocess.DEVNULL,capture_output=True,timeout=120); '
                     'print(json.dumps({"desktop_signin_passed":r.returncode==0})); '
                     'raise SystemExit(0 if r.returncode==0 else 1)'])
                 print(probe, flush=True)

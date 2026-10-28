@@ -1,6 +1,6 @@
 # 1Password desktop integration
 
-**0.2.0 development design; not published or desktop-authentication validated.**
+**Experimental 0.2.0. Desktop sign-in validated; no vault items read.**
 
 Supports native Linux, local rootful Docker without user namespace remapping,
 Debian/Ubuntu apt images, and matching desktop/container UID. Requires working
@@ -91,8 +91,9 @@ Source: reference CLI [lockfile generation/writing](https://github.com/devcontai
 
 0.2.0 passed the four-image no-socket matrix and bundled-CLI Dockerfile/Compose
 socket/UID/lifecycle/diagnostic tests. Those fixtures preserved unset (Dockerfile)
-or canonical (Compose) XDG_RUNTIME_DIR and created no user settings. Desktop sign-in under the new layout remains
-an explicit pending check. Cache expiry and end-to-end secret reads are untested.
+or canonical (Compose) XDG_RUNTIME_DIR; setup created no user settings. Explicit
+desktop sign-in passed in both layouts with raw CLI output suppressed. Cache
+expiry and end-to-end secret reads are untested.
 
 Official [environment reference](https://www.1password.dev/cli/environment-variables.md),
 [app integration](https://www.1password.dev/cli/app-integration.md),

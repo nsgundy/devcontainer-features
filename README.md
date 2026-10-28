@@ -8,13 +8,14 @@ Experimental native-Linux 1Password desktop integration for trusted devcontainer
 
 ## Current work
 
-**0.2.0 is under development, not published.** It uses the official apt CLI and
+**Experimental 0.2.0.** It uses the official apt CLI and
 single canonical socket mount without overriding XDG_RUNTIME_DIR or changing
 user settings. Incompatible runtimes fail clearly rather than being overwritten.
 
 Supports Debian/Ubuntu containers on native Linux with rootful Docker, no user
 namespace remapping, and matching host/container UID. No authentication or secret
-reads run automatically. Desktop sign-in for the revised design remains pending.
+reads run automatically. Desktop sign-in passed in disposable Dockerfile and
+Compose containers, without a setup-time settings mutation.
 
 Published 0.1.0 uses the older global-runtime-override design; main-branch code
 and documentation must not be interpreted as its behavior. Its withdrawal is a
