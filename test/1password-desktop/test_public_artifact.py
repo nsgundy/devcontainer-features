@@ -13,12 +13,16 @@ import urllib.request
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cli', type=Path, required=True)
-parser.add_argument('--expected-digest', required=True)
+parser.add_argument('--expected-digest')
+parser.add_argument('--digest-output', type=Path)
 args = parser.parse_args()
 repository = 'nsgundy/devcontainer-features/1password-desktop'
 expected_digest = args.expected_digest
-assert expected_digest.startswith('sha256:') and len(expected_digest) == 71
+if expected_digest:
+    assert expected_digest.startswith('sha256:') and len(expected_digest) == 71
 source = Path(__file__).resolve().parents[2] / 'src/1password-desktop'
+version = json.loads((source / 'devcontainer-feature.json').read_text())['version']
+major, minor, _ = version.split('.')
 # No local credentials are consulted for these HTTP requests.
 with urllib.request.urlopen(f'https://ghcr.io/token?service=ghcr.io&scope=repository:{repository}:pull', timeout=30) as response:
     token = json.load(response)['token']
@@ -30,9 +34,12 @@ def fetch(path):
         return response.read()
 
 manifest = None
-for tag in ('0.2.0', '0.2', '0', 'latest'):
+for tag in (version, f'{major}.{minor}', major, 'latest'):
     data = fetch('manifests/' + tag)
-    assert 'sha256:' + hashlib.sha256(data).hexdigest() == expected_digest
+    digest = 'sha256:' + hashlib.sha256(data).hexdigest()
+    if expected_digest is None:
+        expected_digest = digest
+    assert digest == expected_digest
     manifest = json.loads(data)
 print('Anonymous tags verified:', expected_digest, flush=True)
 layer = manifest['layers'][0]
@@ -47,11 +54,11 @@ with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         name = member.name.removeprefix('./')
         assert '/' not in name and name not in packaged, 'Unexpected archive path'
         packaged[name] = tar.extractfile(member).read()
-assert set(packaged) == {'LICENSE', 'README.md', 'configure-runtime.py', 'devcontainer-feature.json', 'doctor.py', 'install.sh'}
+assert set(packaged) == {'LICENSE', 'README.md', 'configure-runtime.py', 'devcontainer-feature.json', 'install.sh'}
 for name, content in packaged.items():
     assert content == (source / name).read_bytes(), f'Release source mismatch: {name}'
 metadata = json.loads(packaged['devcontainer-feature.json'])
-assert metadata['id'] == '1password-desktop' and metadata['version'] == '0.2.0'
+assert metadata['id'] == '1password-desktop' and metadata['version'] == version
 print('Released archive integrity/allowlist verified; included files:', ', '.join(sorted(packaged)), flush=True)
 
 with tempfile.TemporaryDirectory(prefix='onepassword-public-install-') as temporary:
@@ -71,15 +78,17 @@ with tempfile.TemporaryDirectory(prefix='onepassword-public-install-') as tempor
     try:
         result = subprocess.run(['node', str(args.cli), 'build', '--workspace-folder', str(workspace),
             '--user-data-folder', str(workspace / 'cli-data'), '--no-lockfile', '--image-name', image,
-            '--additional-features', json.dumps({'ghcr.io/' + repository + ':0.2.0': {
+            '--additional-features', json.dumps({'ghcr.io/' + repository + ':' + version: {
                 'hostCliGid': '23456'}})],
             env=env, capture_output=True, text=True, timeout=300)
         if result.returncode:
             print(result.stderr[-6000:])
             raise SystemExit(result.returncode)
         subprocess.run(['docker', 'run', '--rm', '--network', 'none', image, 'sh', '-c',
-                        'test "$(stat -c %u:%g:%a /usr/bin/op)" = 0:23456:2755'],
+                        'test "$(stat -c %u:%g:%a /usr/bin/op)" = 0:23456:2755 && test ! -e /usr/local/bin/1password-desktop-doctor'],
                        env=env, check=True, timeout=15)
         print('Credential-free published Feature installation passed; no desktop socket mounted')
     finally:
         subprocess.run(['docker', 'image', 'rm', image], env=env, capture_output=True)
+if args.digest_output:
+    args.digest_output.write_text(expected_digest + '\n')

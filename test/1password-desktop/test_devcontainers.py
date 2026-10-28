@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local socket-access test with the installed extension CLI; no authentication."""
+"""Opt-in local socket tests; desktop authentication requires its own flag."""
 import argparse
 import hashlib
 import json
@@ -76,8 +76,10 @@ services:
             image = command(['docker', 'inspect', '-f', '{{.Config.Image}}', container]).strip()
             uid = command(['docker', 'exec', '-u', 'ubuntu', container, 'id', '-u']).strip()
             assert uid == str(os.getuid()), f'UID update failed: {uid}'
-            doctor = command(['docker', 'exec', '-u', 'ubuntu', container, '1password-desktop-doctor'])
-            assert 'FAIL:' not in doctor
+            command(['docker', 'exec', '-u', 'ubuntu', container, 'sh', '-c',
+                                 'test "$(command -v op)" = /usr/bin/op && /usr/bin/op --version >/dev/null'])
+            command(['docker', 'exec', '-u', 'ubuntu', container, 'sh', '-c',
+                     'test ! -e /usr/local/bin/1password-desktop-doctor'])
             # postStart must have completed; test a second explicit lifecycle run.
             command(['docker', 'exec', '-u', 'ubuntu', container, 'sudo', '-n',
                      '/usr/local/share/1password-desktop/configure-runtime.py'])
@@ -95,7 +97,7 @@ services:
                 print(probe, flush=True)
             after = files(workspace)
             changed = sorted(key for key in before.keys() | after.keys() if before.get(key) != after.get(key))
-            print(json.dumps({'scenario': scenario, 'uid_updated': True, 'doctor_passed': True,
+            print(json.dumps({'scenario': scenario, 'uid_updated': True, 'cli_check_passed': True,
                               'lifecycle_rerun_passed': True, 'runtime_env_unchanged': True,
                               'settings_not_created': True, 'workspace_changes': changed}), flush=True)
             workspace_mutations |= bool(changed)

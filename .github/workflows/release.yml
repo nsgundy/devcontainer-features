@@ -1,17 +1,33 @@
 name: Release Features
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Stable version matching Feature metadata and releases/<version>.md
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
   group: publish-features
   cancel-in-progress: false
 jobs:
+  validate:
+    if: github.ref == 'refs/heads/main' && github.repository == 'nsgundy/devcontainer-features'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate version, notes and absence of an existing release
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/check_release.py "$VERSION" --check-remote
   tests:
-    if: github.ref == 'refs/heads/main'
+    needs: validate
     uses: ./.github/workflows/test.yml
   publish:
-    if: github.ref == 'refs/heads/main'
     needs: tests
     runs-on: ubuntu-latest
     permissions:
@@ -21,7 +37,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
-      - name: Publish Features
+      - name: Publish Features and collection index
         uses: devcontainers/action@bef2cf2d1a019b00b45e184f83035e01bd1972f3 # v1
         with:
           publish-features: 'true'
@@ -32,3 +48,37 @@ jobs:
           disable-repo-tagging: 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install pinned verification CLI
+        run: npm install --prefix "$RUNNER_TEMP/release-cli" --no-audit --no-fund --ignore-scripts @devcontainers/cli@0.90.0
+      - name: Verify anonymous archive and credential-free installation
+        run: |
+          python3 test/1password-desktop/test_public_artifact.py \
+            --cli "$RUNNER_TEMP/release-cli/node_modules/@devcontainers/cli/devcontainer.js" \
+            --digest-output "$RUNNER_TEMP/release-digest"
+      - name: Create matching tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp "releases/$VERSION.md" "$RUNNER_TEMP/release-notes.md"
+          digest=$(< "$RUNNER_TEMP/release-digest")
+          printf '\n## Published artifact\n\n`ghcr.io/nsgundy/devcontainer-features/1password-desktop:%s`\n\nManifest: `%s`\n' \
+            "$VERSION" "$digest" >> "$RUNNER_TEMP/release-notes.md"
+          if tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" --jq '.object.sha'); then
+            test "$tag_sha" = "$GITHUB_SHA" || { echo 'Tag points to a different commit'; exit 1; }
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/v$VERSION" -f sha="$GITHUB_SHA" --silent
+          fi
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "1password-desktop $VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"

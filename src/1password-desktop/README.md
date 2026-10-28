@@ -1,6 +1,6 @@
 # 1Password desktop integration
 
-**Experimental 0.2.0. Desktop sign-in validated; no vault items read.**
+**Experimental. Desktop sign-in validated on the 0.2 runtime design; no vault items read.**
 
 Supports native Linux, local rootful Docker without user namespace remapping,
 Debian/Ubuntu apt images, and matching desktop/container UID. Requires working
@@ -16,7 +16,7 @@ using this GID causes installation to fail; no groups are modified.
 
 The host must export canonical `XDG_RUNTIME_DIR` into VS Code's environment.
 Only its `1Password-BrowserSupport.sock` is mounted, at the same container path.
-A missing source may prevent container creation before diagnostics execute.
+A missing source may prevent container creation before lifecycle checks execute.
 
 ## Runtime-preserving behavior
 
@@ -56,19 +56,13 @@ broad runtime-directory mounts are requested.
 Feature-owned installation files:
 
 - `/usr/local/share/1password-desktop/`: root-owned helper and configuration.
-- `/usr/local/bin/1password-desktop-doctor`.
 - `/etc/sudoers.d/1password-desktop`: exact fixed-user runtime helper only.
 - Official apt keyrings, source and signature policy.
 
 The Feature may initialize the canonical socket-only runtime directory as
 specified above. Existing 1Password user configuration is neither read nor changed.
 
-## Diagnostics, recovery and rollback
-
-Run `1password-desktop-doctor` as the remote user. It checks user identity, PATH,
-CLI permissions, runtime compatibility/ownership, socket UID, integration toggle,
-NoNewPrivs and the CLI filesystem's nosuid flag. It never authenticates, dumps
-settings or reads account/secret data. These checks do not prove authorization.
+## Recovery and rollback
 
 App restart may replace the socket inode, leaving a single-file bind mount stale.
 Recreate the container to recover; restarting it may retain the stale mount.
@@ -90,7 +84,7 @@ Source: reference CLI [lockfile generation/writing](https://github.com/devcontai
 ## Validation and sources
 
 0.2.0 passed the four-image no-socket matrix and bundled-CLI Dockerfile/Compose
-socket/UID/lifecycle/diagnostic tests. Those fixtures preserved unset (Dockerfile)
+socket/UID/lifecycle tests. Those fixtures preserved unset (Dockerfile)
 or canonical (Compose) XDG_RUNTIME_DIR; setup created no user settings. Explicit
 desktop sign-in passed in both layouts with raw CLI output suppressed. Cache
 expiry and end-to-end secret reads are untested.

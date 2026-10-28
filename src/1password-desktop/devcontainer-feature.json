@@ -1,6 +1,6 @@
 {
   "id": "1password-desktop",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "name": "1Password desktop integration (experimental)",
   "documentationURL": "https://github.com/nsgundy/devcontainer-features/tree/main/src/1password-desktop",
   "licenseURL": "https://github.com/nsgundy/devcontainer-features/blob/main/LICENSE",

@@ -31,7 +31,6 @@ chown "0:$gid" /usr/bin/op
 chmod 2755 /usr/bin/op
 install -d -m 0755 /usr/local/share/1password-desktop
 install -m 0755 configure-runtime.py /usr/local/share/1password-desktop/configure-runtime.py
-install -m 0755 doctor.py /usr/local/bin/1password-desktop-doctor
 python3 - "$remote" "$gid" <<'PY'
 import json, sys
 with open('/usr/local/share/1password-desktop/config.json', 'w') as f:

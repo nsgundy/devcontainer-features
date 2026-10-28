@@ -7,7 +7,7 @@ python3 test/1password-desktop/run_matrix.py
 ```
 
 Defaults to Debian 12/13 and Ubuntu 22.04/24.04; pass image references to select a
-subset. Each image runs 15 runtime tests and 9 container tests (96 executions).
+subset. Each image runs 15 runtime tests and 8 container tests (92 executions).
 Installation runs twice. Builds use distro and official 1Password apt repositories;
 runtime tests use `--network none`, no host mounts, credentials or desktop app.
 Fake socket fixtures test metadata/ownership only; no protocol is implemented.
@@ -16,8 +16,13 @@ Tagged test images are removed; build cache/base images may remain.
 Coverage: CLI permissions, GID validation/collisions, lifecycle reruns, canonical
 runtime compatibility, root/socket-only initialization, existing runtime
 preservation, parent/runtime/socket symlinks, foreign ownership, unsafe modes,
-missing socket/runtime, PATH shadowing, NoNewPrivs, restricted sudo invocation,
-and byte/owner/mode preservation of pre-existing malformed user settings.
+missing sockets, packaged CLI selection/execution, diagnostic-command absence,
+restricted sudo invocation, and byte/owner/mode preservation of pre-existing
+malformed user settings. Eight separate release-policy tests run without Docker:
+
+```sh
+python3 -m unittest discover -s test -p test_release.py -v
+```
 
 The two pure environment-policy tests can run without Docker:
 
@@ -35,7 +40,7 @@ python3 test/1password-desktop/test_devcontainers.py \
 ```
 
 Uses disposable Dockerfile and Compose fixtures and additional Features. Checks
-socket mount substitution, UID remapping, postStart setup, doctor output,
+socket mount substitution, UID remapping, postStart setup, packaged CLI execution,
 idempotency, preservation of unset (Dockerfile) or canonical (Compose)
 XDG_RUNTIME_DIR, absent user settings creation,
 and before/after workspace hashes. No authentication or secret reads by default.
@@ -69,7 +74,11 @@ python3 test/1password-desktop/test_public_artifact.py \
   --cli /path/to/devContainersSpecCLI.js --expected-digest sha256:RELEASE_DIGEST
 ```
 
-Targets 0.2.0: anonymous tag/digest retrieval, layer integrity, exact release-source
+Targets the version in the checked-out Feature metadata: anonymous tag/digest
+retrieval, layer integrity, exact release-source
 comparison, and installation with fresh HOME and empty credential config.
 The build mounts no desktop socket and does not authenticate. Moving `0`/`latest`
-are checked against the expected release digest at validation time.
+are checked against the expected release digest at validation time. Without
+`--expected-digest`, the workflow derives it from the immutable version tag,
+compares all aliases, and verifies exact source bytes before accepting it.
+`--digest-output /path/to/file` records the digest only after installation passes.

@@ -58,33 +58,20 @@ class ContainerTests(unittest.TestCase):
     def test_cli_mode(self):
         info = Path('/usr/bin/op').stat()
         self.assertEqual((info.st_uid, info.st_gid, info.st_mode & 0o7777), (0, 23456, 0o2755))
+        self.assertEqual(user_run('sh', '-c', 'command -v op').stdout.strip(), '/usr/bin/op')
+        self.assertEqual(user_run('/usr/bin/op', '--version').returncode, 0)
+        self.assertFalse(os.statvfs('/usr/bin/op').f_flag & os.ST_NOSUID)
 
-    def test_lifecycle_and_diagnostics_without_settings_mutation(self):
+    def test_lifecycle_without_settings_mutation(self):
         before = (SETTINGS.read_bytes(), SETTINGS.stat().st_uid, SETTINGS.stat().st_mode)
         for _ in range(2):
             result = user_run(HELPER)
             self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((SETTINGS.read_bytes(), SETTINGS.stat().st_uid, SETTINGS.stat().st_mode), before)
         self.assertEqual(RUNTIME.stat().st_uid, 1100)
-        result = user_run('1password-desktop-doctor')
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        fake = Path('/tmp/shadow-cli')
-        fake.mkdir(exist_ok=True)
-        (fake / 'op').write_text('#!/bin/sh\nexit 0\n')
-        (fake / 'op').chmod(0o755)
-        result = user_run('env', 'PATH=/tmp/shadow-cli:/usr/bin:/bin', '/usr/local/bin/1password-desktop-doctor')
-        self.assertIn('FAIL: PATH selects packaged CLI', result.stdout)
 
-    def test_doctor_reports_missing_runtime_without_traceback(self):
-        shutil.rmtree(RUNTIME)
-        result = user_run('1password-desktop-doctor')
-        self.assertEqual(result.returncode, 1)
-        self.assertIn('FAIL: Runtime directory exists', result.stdout)
-        self.assertNotIn('Traceback', result.stderr)
-
-    def test_doctor_detects_no_new_privileges(self):
-        result = user_run('setpriv', '--no-new-privs', '1password-desktop-doctor')
-        self.assertIn('FAIL: Set-GID execution allowed by process policy', result.stdout)
+    def test_no_diagnostic_command_installed(self):
+        self.assertFalse(Path('/usr/local/bin/1password-desktop-doctor').exists())
 
     def test_sudo_helper_rejects_arguments(self):
         result = user_run('sudo', '-n', HELPER, '/tmp/arbitrary-path')
@@ -96,8 +83,6 @@ class ContainerTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(RUNTIME.stat().st_uid, before.st_uid)
         self.assertEqual(RUNTIME.stat().st_mode, before.st_mode)
-        result = user_run('env', 'XDG_RUNTIME_DIR=/tmp/other-runtime', '1password-desktop-doctor')
-        self.assertIn('FAIL: Existing runtime is unset or canonical', result.stdout)
 
     def test_missing_socket_not_initialized(self):
         (RUNTIME / '1Password-BrowserSupport.sock').unlink()
